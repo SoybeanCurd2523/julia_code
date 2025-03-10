@@ -19,7 +19,8 @@ model = Model(Ipopt.Optimizer)
 @variable(model, r5, start=12)
 @variable(model, r6, start=21)
 @variable(model, th1, start=deg2rad(13)) # radian
-@variable(model, w2, start=rand(Float64))
+# @variable(model, w2, start=rand(Float64))
+@variable(model, offset, start = deg2rad(10))
 
 th2_init = deg2rad(248)
 
@@ -77,10 +78,12 @@ end
 @constraint(model, r6 >= 21*0.8)
 @constraint(model, th1 <= deg2rad(90))
 @constraint(model, th1 >= 0)
-@constraint(model, w2 <= deg2rad(180))
-@constraint(model, w2 >= deg2rad(36))
+# @constraint(model, w2 <= deg2rad(180))
+# @constraint(model, w2 >= deg2rad(36))
+# @constraint(model, offset >= deg2rad(10))
+# @constraint(model, offset <= deg2rad(20))
 
-@NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*0.1*w2))^2 for i in 1:101))
+@NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - offset - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
 optimize!(model)
 
 println("Optimal r1: ", value(r1)) # value(x)는 JuMP에서 최적화 후 변수를 평가하는 표준 방법
@@ -89,9 +92,9 @@ println("Optimal r5: ", value(r5))
 println("Optimal r6: ", value(r6))
 print("Optimal th1(radian): ", value(th1))
 println(", th1(degree): ", rad2deg(value(th1)))
-print("Optimal w2(rad/s): ", value(w2))
-println(", w2(deg/s): ", rad2deg(value(w2)))
-
+# print("Optimal w2(rad/s): ", value(w2))
+# println(", w2(deg/s): ", rad2deg(value(w2)))
+println("offset(degree) : ", rad2deg(value(offset)))
 println("==============================")
 println("Optimal value of cost function: ", objective_value(model))
 println("correlation coefficient : ", cor(human_data, optimal_sim_data));
@@ -101,6 +104,19 @@ println("RMSE : ", RMSE(human_data, optimal_sim_data));
 
 plot(human_data, label="human_data", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!")
 plot!(sim_data, label="sim_data", color="red", linewidth=2)
-plot!(optimal_sim_data, label="output", color="green", linewidth=2, line=:dash)
-# output = [calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
-# plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
+# plot!(optimal_sim_data, label="optimal_sim_data", color="green", linewidth=2, line=:dash)
+# plot!()
+output = [value(offset) + calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
+plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
+
+# EXIT: Optimal Solution Found.
+# Optimal r1: 11.199999897919621
+# Optimal r2: 2.921607944324002
+# Optimal r5: 50.000000455715806
+# Optimal r6: 55.64809060474908
+# Optimal th1(radian): -9.95459981922385e-9, th1(degree): -5.703565563832188e-7
+# offset(degree) : -2.5709380969743596
+# ==============================
+# Optimal value of cost function: 0.24526076013157022
+# correlation coefficient : [-0.02265958547583218;;]
+# RMSE : 15.758127268834084
