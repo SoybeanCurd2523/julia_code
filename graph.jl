@@ -25,7 +25,7 @@ model = Model(Ipopt.Optimizer)
 th2_init = deg2rad(248)
 
 function calc_theta_sim(r1, r2, r5, r6, th1, th2)
-     rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0)) # sqrt 정의역 조건
+     rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0)) # sqrt 정의역 조건2
      if rs ≈ 0 
           print("error! rs is 0 \n")
           println("r1 : ", r1, ", r2 : ", r2, ", r5 : ", r5, ", r6 : ", r6, ", th1(rad) : ", th1, ", w2(rad/s) : ", w2)
@@ -48,15 +48,7 @@ function calc_theta_sim(r1, r2, r5, r6, th1, th2)
      return theta_sim
 end
 
-# @NLconstraint(model, (-r6^2+r5^2+sqrt(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2))^2) / (2*r5*sqrt(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2))) >= -1)
-# @NLconstraint(model, (-r6^2+r5^2+sqrt(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2))^2) / (2*r5*sqrt(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2))) <= 1)
-
-#=
- grashof's law : min(r1,r2,r5,r6)+max(r1,r2,r5,r6) <= sum([r1,r2,r5,r6])-min(r1,r2,r5,r6)-max(r1,r2,r5,r6)
- @constraint(model, sort([value(r1),value(r2),value(r5),value(r6)])[1] + sort([value(r1),value(r2),value(r5),value(r6)])[4] 
-                     <= sort([value(r1),value(r2),value(r5),value(r6)])[2] + sort([value(r1),value(r2),value(r5),value(r6)])[3])
-=#
-
+# grashof's condition
 @constraint(model, r2 + r6 <= r1 + r5)
 
 @constraint(model, r2 <= r6)
@@ -72,12 +64,13 @@ end
 @constraint(model, r1 >= 14*0.8)
 @constraint(model, r2 <= 6)
 @constraint(model, r2 >= 3*0.8)
-@constraint(model, r5 <= 50)
+@constraint(model, r5 <= 43)
 @constraint(model, r5 >= 12*0.8)
-@constraint(model, r6 <= 50*sqrt(2)) # 70.71
+@constraint(model, r6 <= 43*sqrt(2)) 
 @constraint(model, r6 >= 21*0.8)
 @constraint(model, th1 <= deg2rad(90))
 @constraint(model, th1 >= 0)
+
 # @constraint(model, w2 <= deg2rad(180))
 # @constraint(model, w2 >= deg2rad(36))
 # @constraint(model, offset >= deg2rad(10))
@@ -85,6 +78,12 @@ end
 
 @NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - offset - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
 optimize!(model)
+
+
+# 최적화 결과
+# rad임
+output = [value(offset) + calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
+
 
 println("Optimal r1: ", value(r1)) # value(x)는 JuMP에서 최적화 후 변수를 평가하는 표준 방법
 println("Optimal r2: ", value(r2))
@@ -97,16 +96,13 @@ println(", th1(degree): ", rad2deg(value(th1)))
 println("offset(degree) : ", rad2deg(value(offset)))
 println("==============================")
 println("Optimal value of cost function: ", objective_value(model))
-println("correlation coefficient : ", cor(human_data, optimal_sim_data));
-println("RMSE : ", RMSE(human_data, optimal_sim_data));
+println("correlation coefficient : ", cor(human_data, rad2deg.(output)));
+println("RMSE : ", RMSE(human_data, rad2deg.(output)));
 
 ######################################
 
-plot(human_data, label="human_data", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!")
-plot!(sim_data, label="sim_data", color="red", linewidth=2)
-# plot!(optimal_sim_data, label="optimal_sim_data", color="green", linewidth=2, line=:dash)
-# plot!()
-output = [value(offset) + calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
+plot(human_data, label="human_data", color="red", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!")
+plot!(sim_data, label="sim_data", color="blue", linewidth=2)
 plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
 # EXIT: Optimal Solution Found.
