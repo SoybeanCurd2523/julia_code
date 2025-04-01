@@ -1,8 +1,13 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
-sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전
-human_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
-optimal_sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data.txt" # 최적화 이후
+# sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전
+# human_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
+# optimal_sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data.txt" # 최적화 이후
+
+sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전
+human_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
+optimal_sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data.txt" # 최적화 이후
+
 
 sim_data = readdlm(sim_data_file_path) # 101×1 Matrix{Float64}, (101, 1)
 human_data = readdlm(human_data_file_path)
@@ -16,7 +21,7 @@ model = Model(Ipopt.Optimizer)
 
 @variable(model, r1, start=14) # 초기값을 설정하지 않으면 0으로 시작
 @variable(model, r2, start=3)
-@variable(model, r5, start=12)
+@variable(model, r5, start=12) 
 @variable(model, r6, start=21)
 @variable(model, th1, start=deg2rad(13)) # radian
 # @variable(model, w2, start=rand(Float64))
