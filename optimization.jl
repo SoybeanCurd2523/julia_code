@@ -1,17 +1,10 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
-# sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전
-# human_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
-# optimal_sim_data_file_path = "C:\\Users\\super\\OneDrive\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data.txt" # 최적화 이후
-
-sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전
+sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전. matlab에서
 human_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
-optimal_sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data.txt" # 최적화 이후
-
 
 sim_data = readdlm(sim_data_file_path) # 101×1 Matrix{Float64}, (101, 1)
 human_data = readdlm(human_data_file_path)
-optimal_sim_data = readdlm(optimal_sim_data_file_path)
 
 function RMSE(data1, data2)
      return sqrt(mean((data1 .- data2).^2))
@@ -27,7 +20,7 @@ model = Model(Ipopt.Optimizer)
 # @variable(model, w2, start=rand(Float64))
 @variable(model, offset, start = deg2rad(10))
 
-th2_init = deg2rad(248)
+th2_init = deg2rad(248) # 248도??
 
 function calc_theta_sim(r1, r2, r5, r6, th1, th2)
      rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0)) # sqrt 정의역 조건2
@@ -69,7 +62,7 @@ end
 @constraint(model, r1 >= 14*0.8)
 @constraint(model, r2 <= 6)
 @constraint(model, r2 >= 3*0.8)
-@constraint(model, r5 <= 43)
+@constraint(model, r5 <= 43) #상한이 성인남성의 평균 thigh 길이인 43cm
 @constraint(model, r5 >= 12*0.8)
 @constraint(model, r6 <= 43*sqrt(2)) 
 @constraint(model, r6 >= 21*0.8)
@@ -110,14 +103,18 @@ plot(human_data, label="human_data", color="red", xlabel="% gait cycle", ylabel=
 plot!(sim_data, label="sim_data", color="blue", linewidth=2)
 plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
+# plot(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash, xlabel="% gait cycle", ylabel="hip angle(degree)")
+
+writedlm("C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt", output)
+
 # EXIT: Optimal Solution Found.
-# Optimal r1: 11.199999897919621
-# Optimal r2: 2.921607944324002
-# Optimal r5: 50.000000455715806
-# Optimal r6: 55.64809060474908
-# Optimal th1(radian): -9.95459981922385e-9, th1(degree): -5.703565563832188e-7
-# offset(degree) : -2.5709380969743596
+# Optimal r1: 11.199999890069158
+# Optimal r2: 3.6571801778165156
+# Optimal r5: 43.00000042205591
+# Optimal r6: 43.00000041292439
+# Optimal th1(radian): 1.4342404416919392, th1(degree): 82.17592411592715
+# offset(degree) : 112.93462532011056
 # ==============================
-# Optimal value of cost function: 0.24526076013157022
-# correlation coefficient : [-0.02265958547583218;;]
-# RMSE : 15.758127268834084
+# Optimal value of cost function: 0.16848125869377456
+# correlation coefficient : [0.9856251870536015;;]
+# RMSE : 2.3401179328365296
