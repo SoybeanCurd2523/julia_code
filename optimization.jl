@@ -1,6 +1,6 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
-sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\new_th5_values.txt" # 최적화 전. matlab에서
+sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data2.txt" # 최적화 전. matlab에서
 human_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
 
 sim_data = readdlm(sim_data_file_path) # 101×1 Matrix{Float64}, (101, 1)
@@ -17,32 +17,30 @@ model = Model(Ipopt.Optimizer)
 @variable(model, r5, start=12) 
 @variable(model, r6, start=21)
 @variable(model, th1, start=deg2rad(13)) # radian
-# @variable(model, w2, start=rand(Float64))
-@variable(model, offset, start = deg2rad(10))
 
 th2_init = deg2rad(248) # 248도??
 
 function calc_theta_sim(r1, r2, r5, r6, th1, th2)
-     rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0)) # sqrt 정의역 조건2
-     if rs ≈ 0 
-          print("error! rs is 0 \n")
-          println("r1 : ", r1, ", r2 : ", r2, ", r5 : ", r5, ", r6 : ", r6, ", th1(rad) : ", th1, ", w2(rad/s) : ", w2)
-          return 0.0
-     end
 
+     #rs 계산 시 음수 내부 제곱근 방지
+     rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0.0)) # sqrt 정의역 조건2
+
+     # MATLAB과 동일하게 두 좌표의 사잇각은 atan2를 사용하여 계산
      ths = atan(r1*sin(th1) + r2*sin(th2), r1*cos(th1) + r2*cos(th2))
-     input_to_acos = (-r6^2+r5^2+rs^2)/ (2*r5*rs) # acos 정의역 : -1과 1 사이여야 함
-     if input_to_acos < -1
-          print("error! input_to_acos < -1 \n")
-          println("r1 : ", r1, ", r2 : ", r2, ", r5 : ", r5, ", r6 : ", r6, ", th1(rad) : ", th1, ", w2(rad/s) : ", w2)
-          input_to_acos = -1
-     elseif input_to_acos > 1
-          print("error! input_to_acos > 1 \n")
-          println("r1 : ", r1, ", r2 : ", r2, ", r5 : ", r5, ", r6 : ", r6, ", th1(rad) : ", th1, ", w2(rad/s) : ", w2)
-          input_to_acos = 1
-     end
-     # valid_to_acos = clamp(input_to_acos, -1, 1)
-     theta_sim = π/2 - (ths - acos(input_to_acos) + π)
+
+     # acos 입력값 계산 및 클램핑 (정의역 [-1, 1])
+     val = (-r6^2+r5^2+rs^2)/ (2*r5*rs)
+     val = clamp(val, -1.0, 1.0)
+
+     # 두 후보값 계산: MATLAB과 동일하게 min()을 사용
+     th5_1 = ths + acos(val)
+     th5_2 = ths - acos(val)
+
+     # MATLAB에서는 두 값 중 min()을 취한 후 pi를 더함
+     th5 = min(th5_1, th5_2) + π
+
+     # 수직(90°) 기준 변환: MATLAB은 new_th5 = 90 - rad2deg(th5)
+     theta_sim = deg2rad(90) - th5
      return theta_sim
 end
 
@@ -69,18 +67,14 @@ end
 @constraint(model, th1 <= deg2rad(90))
 @constraint(model, th1 >= 0)
 
-# @constraint(model, w2 <= deg2rad(180))
-# @constraint(model, w2 >= deg2rad(36))
-# @constraint(model, offset >= deg2rad(10))
-# @constraint(model, offset <= deg2rad(20))
 
-@NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - offset - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
+@NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
 optimize!(model)
 
 
 # 최적화 결과
 # rad임
-output = [value(offset) + calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
+output = [calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
 
 
 println("Optimal r1: ", value(r1)) # value(x)는 JuMP에서 최적화 후 변수를 평가하는 표준 방법
@@ -89,9 +83,6 @@ println("Optimal r5: ", value(r5))
 println("Optimal r6: ", value(r6))
 print("Optimal th1(radian): ", value(th1))
 println(", th1(degree): ", rad2deg(value(th1)))
-# print("Optimal w2(rad/s): ", value(w2))
-# println(", w2(deg/s): ", rad2deg(value(w2)))
-println("offset(degree) : ", rad2deg(value(offset)))
 println("==============================")
 println("Optimal value of cost function: ", objective_value(model))
 println("correlation coefficient : ", cor(human_data, rad2deg.(output)));
@@ -99,7 +90,7 @@ println("RMSE : ", RMSE(human_data, rad2deg.(output)));
 
 ######################################
 
-plot(human_data, label="human_data", color="red", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!")
+plot(human_data, label="human_data", color="red", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!!")
 plot!(sim_data, label="sim_data", color="blue", linewidth=2)
 plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
@@ -107,14 +98,18 @@ plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
 writedlm("C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt", output)
 
+
+# new_julia_angle =  rad2deg.( [calc_theta_sim(14.0, 3.0, 12.0, 21.0, deg2rad(13), deg2rad(248) + (i-1)*2*pi/100) for i in 1:101])
+# sim_data .- rad2deg.( [calc_theta_sim(14.0, 3.0, 12.0, 21.0, deg2rad(13), deg2rad(248) + (i-1)*2*pi/100) for i in 1:101])
+# 차이가 0.28% 이긴 한데...... 좀 그렇긴 하다.. offset 빼도 차이가 남
+
 # EXIT: Optimal Solution Found.
-# Optimal r1: 11.199999890069158
-# Optimal r2: 3.6571801778165156
-# Optimal r5: 43.00000042205591
-# Optimal r6: 43.00000041292439
-# Optimal th1(radian): 1.4342404416919392, th1(degree): 82.17592411592715
-# offset(degree) : 112.93462532011056
+# Optimal r1: 11.422747791577113
+# Optimal r2: 2.9934522256178693
+# Optimal r5: 42.27568890339048
+# Optimal r6: 47.81152056826159
+# Optimal th1(radian): -9.953306729289433e-9, th1(degree): -5.70282467787446e-7
 # ==============================
-# Optimal value of cost function: 0.16848125869377456
-# correlation coefficient : [0.9856251870536015;;]
-# RMSE : 2.3401179328365296
+# Optimal value of cost function: 0.24788896401983262
+# correlation coefficient : [0.9788393679174849;;]
+# RMSE : 2.8385107397410234
