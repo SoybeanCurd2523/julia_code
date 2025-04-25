@@ -1,7 +1,7 @@
 using LsqFit, Plots, DelimitedFiles, ForwardDiff
 
 # 데이터 불러오기
-file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt"
+file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt"
 output = vec(readdlm(file_path))  # 101×1 → 1차원 벡터로
 
 # 시간 벡터 (1부터 101까지)

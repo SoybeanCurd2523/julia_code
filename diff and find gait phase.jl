@@ -1,6 +1,6 @@
 using DelimitedFiles, Plots, Random
 
-optimal_theta5_output_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt" # 최적화 전. matlab에서
+optimal_theta5_output_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt" # 최적화 전. matlab에서
 
 output = readdlm(optimal_theta5_output_file_path)
 output = vec(output)
@@ -25,7 +25,7 @@ end
 # 기울기 계산
 grad_output = calc_gradient(collect(gait_cycle), output)
 
-# plot(grad_output, label="grad_output", color="red", linewidth=2, xlabel="% gait cycle", ylabel="hip angular velocity(degree/index)")
+plot(grad_output, label="grad_output", color="red", linewidth=2, xlabel="% gait cycle", ylabel="hip angular velocity(degree/index)")
 
 
 # function find_gait_phase(target_angle::Float64, gait_cycle::AbstractVector, output::AbstractVector, grad_output::AbstractVector; tol=1e-3, prev_angle::Union{Float64,Nothing}=nothing)
@@ -72,105 +72,105 @@ grad_output = calc_gradient(collect(gait_cycle), output)
 # println("찾은 gait phase index: ", index)
 
 
-Random.seed!(123)  # 시드를 고정하면 매 실행마다 같은 난수 시퀀스를 생성합니다.
-# --------------------------
-# find_gait_phase 함수
-function find_gait_phase(target_angle::Float64, gait_cycle::AbstractVector, 
-                         output::AbstractVector, grad_output::AbstractVector;
-                         tol=1e-3, prev_angle::Union{Float64,Nothing}=nothing)
-    candidate_indices = findall(i -> abs(output[i] - target_angle) < tol, 1:length(output))
+# Random.seed!(123)  # 시드를 고정하면 매 실행마다 같은 난수 시퀀스를 생성합니다.
+# # --------------------------
+# # find_gait_phase 함수
+# function find_gait_phase(target_angle::Float64, gait_cycle::AbstractVector, 
+#                          output::AbstractVector, grad_output::AbstractVector;
+#                          tol=1e-3, prev_angle::Union{Float64,Nothing}=nothing)
+#     candidate_indices = findall(i -> abs(output[i] - target_angle) < tol, 1:length(output))
     
-    if isempty(candidate_indices)
-        return nothing
-    elseif length(candidate_indices) == 1
-        return gait_cycle[candidate_indices[1]]
-    else
-        if prev_angle !== nothing
-            expected_sign = (target_angle - prev_angle) > 0 ? 1 : -1
-            valid_candidates = [i for i in candidate_indices if sign(grad_output[i]) == expected_sign]
-            if !isempty(valid_candidates)
-                best = valid_candidates[argmin(abs.(output[valid_candidates] .- target_angle))]
-                return gait_cycle[best]
-            else
-                best = candidate_indices[argmin(abs.(output[candidate_indices] .- target_angle))]
-                return gait_cycle[best]
-            end
-        else
-            best = candidate_indices[argmin(abs.(output[candidate_indices] .- target_angle))]
-            return gait_cycle[best]
-        end
-    end
-end
+#     if isempty(candidate_indices)
+#         return nothing
+#     elseif length(candidate_indices) == 1
+#         return gait_cycle[candidate_indices[1]]
+#     else
+#         if prev_angle !== nothing
+#             expected_sign = (target_angle - prev_angle) > 0 ? 1 : -1
+#             valid_candidates = [i for i in candidate_indices if sign(grad_output[i]) == expected_sign]
+#             if !isempty(valid_candidates)
+#                 best = valid_candidates[argmin(abs.(output[valid_candidates] .- target_angle))]
+#                 return gait_cycle[best]
+#             else
+#                 best = candidate_indices[argmin(abs.(output[candidate_indices] .- target_angle))]
+#                 return gait_cycle[best]
+#             end
+#         else
+#             best = candidate_indices[argmin(abs.(output[candidate_indices] .- target_angle))]
+#             return gait_cycle[best]
+#         end
+#     end
+# end
 
-# --------------------------
-# 랜덤 target angle 50개 생성 (output의 min~max 사이, 단위: degree)
-min_val = minimum(output)
-max_val = maximum(output)
-num_targets = 1000
-target_angles = [min_val + (max_val - min_val) * rand() for _ in 1:num_targets]
+# # --------------------------
+# # 랜덤 target angle 50개 생성 (output의 min~max 사이, 단위: degree)
+# min_val = minimum(output)
+# max_val = maximum(output)
+# num_targets = 1000
+# target_angles = [min_val + (max_val - min_val) * rand() for _ in 1:num_targets]
 
-# 각 target에 대해, prev_angle을 50% 확률로 제공
-# 제공되는 경우, target의 ±10% 범위 내에서 랜덤하게 설정
-prev_angles = [ rand() < 0.5 ? nothing : ta * (1 + (rand()*0.2 - 0.1)) for ta in target_angles ]
+# # 각 target에 대해, prev_angle을 50% 확률로 제공
+# # 제공되는 경우, target의 ±10% 범위 내에서 랜덤하게 설정
+# prev_angles = [ rand() < 0.5 ? nothing : ta * (1 + (rand()*0.2 - 0.1)) for ta in target_angles ]
 
-# 허용 오차 tol (degree)
-tol = 0.01
+# # 허용 오차 tol (degree)
+# tol = 0.01
 
-# --------------------------
-# 각 target에 대해 find_gait_phase 호출 후 성공/실패 판별 및 결과 저장
-# 주의: gait_cycle은 0부터 시작하므로, 결과로 나온 gait phase 값은 실제 % 값입니다.
-success_targets = Float64[]
-success_phases = Float64[]
-failure_targets = Float64[]
-failure_phases = Float64[]
+# # --------------------------
+# # 각 target에 대해 find_gait_phase 호출 후 성공/실패 판별 및 결과 저장
+# # 주의: gait_cycle은 0부터 시작하므로, 결과로 나온 gait phase 값은 실제 % 값입니다.
+# success_targets = Float64[]
+# success_phases = Float64[]
+# failure_targets = Float64[]
+# failure_phases = Float64[]
 
-num_success = 0
-num_failure = 0
+# num_success = 0
+# num_failure = 0
 
-for (ta, pa) in zip(target_angles, prev_angles)
-    phase = find_gait_phase(ta, gait_cycle, output, grad_output; tol=tol, prev_angle=pa)
-    if phase === nothing
-        num_failure += 1
-        push!(failure_targets, ta)
-        push!(failure_phases, NaN)
-        println("Target angle $(round(ta,digits=2))° : No gait phase found.")
-    else
-        # gait_cycle의 값는 0~100, 이 값을 그대로 사용 (예, 37이면 37% gait cycle)
-        idx = phase + 1  # Julia 배열은 1-indexed (gait_cycle[1]==0)
-        found_val = output[idx]
-        err = abs(found_val - ta)
-        if err <= tol
-            num_success += 1
-            push!(success_targets, ta)
-            push!(success_phases, phase)
-        else
-            num_failure += 1
-            push!(failure_targets, ta)
-            push!(failure_phases, phase)
-        end
-        println("Target angle: $(round(ta,digits=2))° | Prev_angle: $(pa === nothing ? "none" : string(round(pa,digits=2)) ) | Found phase: $(phase)% | Output: $(round(found_val,digits=2))° | error: $(round(err,digits=2))°")
-    end
-end
+# for (ta, pa) in zip(target_angles, prev_angles)
+#     phase = find_gait_phase(ta, gait_cycle, output, grad_output; tol=tol, prev_angle=pa)
+#     if phase === nothing
+#         num_failure += 1
+#         push!(failure_targets, ta)
+#         push!(failure_phases, NaN)
+#         println("Target angle $(round(ta,digits=2))° : No gait phase found.")
+#     else
+#         # gait_cycle의 값는 0~100, 이 값을 그대로 사용 (예, 37이면 37% gait cycle)
+#         idx = phase + 1  # Julia 배열은 1-indexed (gait_cycle[1]==0)
+#         found_val = output[idx]
+#         err = abs(found_val - ta)
+#         if err <= tol
+#             num_success += 1
+#             push!(success_targets, ta)
+#             push!(success_phases, phase)
+#         else
+#             num_failure += 1
+#             push!(failure_targets, ta)
+#             push!(failure_phases, phase)
+#         end
+#         println("Target angle: $(round(ta,digits=2))° | Prev_angle: $(pa === nothing ? "none" : string(round(pa,digits=2)) ) | Found phase: $(phase)% | Output: $(round(found_val,digits=2))° | error: $(round(err,digits=2))°")
+#     end
+# end
 
-println("\n총 타겟 개수: $(num_targets)")
-println("성공: $(num_success), 실패: $(num_failure)")
+# println("\n총 타겟 개수: $(num_targets)")
+# println("성공: $(num_success), 실패: $(num_failure)")
 
-# NaN이 아닌 실패 데이터만 필터링합니다.
-filtered_failure_phases = [p for p in failure_phases if !isnan(p)]
-filtered_failure_targets = [failure_targets[i] for i in 1:length(failure_phases) if !isnan(failure_phases[i])]
+# # NaN이 아닌 실패 데이터만 필터링합니다.
+# filtered_failure_phases = [p for p in failure_phases if !isnan(p)]
+# filtered_failure_targets = [failure_targets[i] for i in 1:length(failure_phases) if !isnan(failure_phases[i])]
 
-# 기존 플롯(가로: gait phase, 세로: target hip angle)
-plt = scatter(success_phases, success_targets, 
-        marker=:circle, markersize=2, markercolor=:green,
-        label="success (error ≤ $(tol)°)", legend=:bottomright,
-        grid=true, xlabel="% Gait Phase", ylabel="Target Hip Angle (°)",
-        title="Gait Phase vs. Target Hip Angle")
+# # 기존 플롯(가로: gait phase, 세로: target hip angle)
+# plt = scatter(success_phases, success_targets, 
+#         marker=:circle, markersize=2, markercolor=:green,
+#         label="success (error ≤ $(tol)°)", legend=:bottomright,
+#         grid=true, xlabel="% Gait Phase", ylabel="Target Hip Angle (°)",
+#         title="Gait Phase vs. Target Hip Angle")
 
-# 실패 데이터가 존재하면 빨간 다이아몬드로 추가
-if !isempty(filtered_failure_phases)
-    scatter!(plt, filtered_failure_phases, filtered_failure_targets, 
-            marker=:diamond, markersize=10, markercolor=:red,
-            label="fail")
-end
+# # 실패 데이터가 존재하면 빨간 다이아몬드로 추가
+# if !isempty(filtered_failure_phases)
+#     scatter!(plt, filtered_failure_phases, filtered_failure_targets, 
+#             marker=:diamond, markersize=10, markercolor=:red,
+#             label="fail")
+# end
 
-display(plt)
+# display(plt)

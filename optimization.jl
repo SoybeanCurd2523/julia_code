@@ -1,7 +1,8 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
-sim_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data2.txt" # 최적화 전. matlab에서
-human_data_file_path = "C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
+sim_data_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data2.txt" # 최적화 전. matlab에서
+print(isfile(sim_data_file_path))
+human_data_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
 
 sim_data = readdlm(sim_data_file_path) # 101×1 Matrix{Float64}, (101, 1)
 human_data = readdlm(human_data_file_path)
@@ -96,7 +97,7 @@ plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
 # plot(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash, xlabel="% gait cycle", ylabel="hip angle(degree)")
 
-writedlm("C:\\Users\\Jehyeon\\Desktop\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt", output)
+writedlm("C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt", output)
 
 
 # new_julia_angle =  rad2deg.( [calc_theta_sim(14.0, 3.0, 12.0, 21.0, deg2rad(13), deg2rad(248) + (i-1)*2*pi/100) for i in 1:101])
