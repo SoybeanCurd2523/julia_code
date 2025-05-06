@@ -21,7 +21,7 @@ model = Model(Ipopt.Optimizer)
 
 th2_init = deg2rad(248) # 248도??
 
-function calc_theta_sim(r1, r2, r5, r6, th1, th2)
+function calc_theta_sim(r1, r2, r5, r6, th1, th2) # θ₂ 에서 θ₅ 를 구하는 함수
 
      #rs 계산 시 음수 내부 제곱근 방지
      rs = sqrt(max(r1^2 + r2^2 + 2*r1*r2*cos(th1-th2), 0.0)) # sqrt 정의역 조건2

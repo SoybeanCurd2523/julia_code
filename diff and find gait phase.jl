@@ -1,6 +1,6 @@
 using DelimitedFiles, Plots, Random
 
-optimal_theta5_output_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt" # 최적화 전. matlab에서
+optimal_theta5_output_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt" # 최적화 전. matlab에서
 
 output = readdlm(optimal_theta5_output_file_path)
 output = vec(output)
