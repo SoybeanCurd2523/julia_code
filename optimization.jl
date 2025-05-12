@@ -1,9 +1,10 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
+mean_cycle_file_path ="C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\mean_cycle.txt"
 sim_data_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data2.txt" # 최적화 전. matlab에서
-print(isfile(sim_data_file_path))
 human_data_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
 
+mean_data = readdlm(mean_cycle_file_path)
 sim_data = readdlm(sim_data_file_path) # 101×1 Matrix{Float64}, (101, 1)
 human_data = readdlm(human_data_file_path)
 
@@ -69,7 +70,7 @@ end
 @constraint(model, th1 >= 0)
 
 
-@NLobjective(model, Min, sum( (deg2rad.(human_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
+@NLobjective(model, Min, sum( (deg2rad.(mean_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
 optimize!(model)
 
 
@@ -86,12 +87,12 @@ print("Optimal th1(radian): ", value(th1))
 println(", th1(degree): ", rad2deg(value(th1)))
 println("==============================")
 println("Optimal value of cost function: ", objective_value(model))
-println("correlation coefficient : ", cor(human_data, rad2deg.(output)));
-println("RMSE : ", RMSE(human_data, rad2deg.(output)));
+println("correlation coefficient : ", cor(mean_data, rad2deg.(output)));
+println("RMSE : ", RMSE(mean_data, rad2deg.(output)));
 
 ######################################
 
-plot(human_data, label="human_data", color="red", xlabel="% gait cycle", ylabel="hip angle(degree)", linewidth=2, title="optimize!!")
+plot(mean_data, label="mean_data", color="red", xlabel="% gait cycle", ylabel="thigh angle(degree)", linewidth=2, title="optimization")
 plot!(sim_data, label="sim_data", color="blue", linewidth=2)
 plot!(rad2deg.(output), label="output", color="green", linewidth=2, line=:dash)
 
@@ -103,6 +104,19 @@ writedlm("C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkag
 # new_julia_angle =  rad2deg.( [calc_theta_sim(14.0, 3.0, 12.0, 21.0, deg2rad(13), deg2rad(248) + (i-1)*2*pi/100) for i in 1:101])
 # sim_data .- rad2deg.( [calc_theta_sim(14.0, 3.0, 12.0, 21.0, deg2rad(13), deg2rad(248) + (i-1)*2*pi/100) for i in 1:101])
 # 차이가 0.28% 이긴 한데...... 좀 그렇긴 하다.. offset 빼도 차이가 남
+
+# 1) 최적화된 링크 길이 & 각도 꺼내서 벡터로
+optimal_r = [
+    value(r1),
+    value(r2),
+    value(r5),
+    value(r6),
+    value(th1), # radian
+]
+
+# 2) 파일에 저장 (한 줄로 콤마 구분)
+writedlm("optimal_r_values.txt", optimal_r, ',')
+println("Saved optimal r&th1 to optimal_r_values.txt")
 
 # EXIT: Optimal Solution Found.
 # Optimal r1: 11.422747791577113

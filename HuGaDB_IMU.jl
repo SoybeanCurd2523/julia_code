@@ -127,10 +127,10 @@ for k in 1:n_samples
 end
 
 # 10. 결과를 파일에 저장
-outfile = "thigh_angle_filt_$(cutoff)Hz.txt"
-writedlm(outfile, θ_filt)
+θ_filt_outfile = "thigh_angle_filt_$(cutoff)Hz.txt"
+writedlm(θ_filt_outfile, θ_filt)
 
-println("완료: 컷오프 빈도 $(cutoff) Hz 로 필터링한 각도값을 $outfile 에 저장했습니다.")
+println("완료: 컷오프 빈도 $(cutoff) Hz 로 필터링한 각도값을 $θ_filt_outfile 에 저장했습니다.")
 
 plot(
   t, θ_filt[1:N],
@@ -161,31 +161,45 @@ candidates = [ i for i in 2:n_samples-1 if
 
 # --------------------------------------------------
 # 3) 최소 간격(min_dist) 필터 적용해서 진짜 피크만 selection
-peaks = Int[]
+peaks = Int[] # 각 사이클의 시작 인덱스
 for idx in candidates
     if isempty(peaks) || idx - peaks[end] >= min_dist
         push!(peaks, idx)
     end
 end
 
-println("총 $(length(peaks))개의 gait-cycle 대표 피크 인덱스 발생")
+# println("총 $(length(peaks))개의 gait-cycle 대표 피크 인덱스 발생")
 
 # --------------------------------------------------
 # 4) 피크 사이사이를 하나의 cycle 로 분리
+# 예)
+# 1번 사이클 : 81.68 ~ 61.50
+# 2번 사이클 : 61.50 ~ 49.21
+# 3번 사이클 : 49.21 ~ 49.99
+# 경계값을 공유
 gait_cycles = [
     θ_filt[ peaks[i] : peaks[i+1] ]
     for i in 1:length(peaks)-1
 ]
 
-println("총 $(length(gait_cycles))개의 gait cycle 분리 완료")
+# println("총 $(length(gait_cycles))개의 gait cycle 분리 완료")
+
+
+gait_cycles_outfile = "gait_cycles_$(length(gait_cycles))ea.txt" # Vector{Vector{Float64}}
+writedlm(gait_cycles_outfile, gait_cycles)
+
+println("완료:총 $(length(gait_cycles))개의 분리된 gait cycle들을 $gait_cycles_outfile 에 저장했습니다.")
 
 # --------------------------------------------------
 # 5) (선택) 각 cycle 별로 다른 색으로 전체 신호 위에 표시
 
 p = plot(
-    t, θ_filt[1:N],
+    # t, θ_filt[1:N], # 가로축을 시간으로
+    θ_filt[1:N],      # 가로축을 인덱스로
     color = :black, alpha = 0.3, legend = false,
-    xlabel = "Tims (s)", ylabel = "Thigh Angle (degree)",
+    # xlabel = "Tims (s)", 
+    xlabel = "index",
+    ylabel = "Thigh Angle (degree)",
     title  = "분리된 Gait Cycles"
 )
 for (i, c) in enumerate(gait_cycles)
@@ -193,7 +207,8 @@ for (i, c) in enumerate(gait_cycles)
     idx0, idx1 = peaks[i], peaks[i+1]
     plot!(
         p,
-        t[idx0:idx1], θ_filt[idx0:idx1],
+        # t[idx0:idx1], θ_filt[idx0:idx1],
+        idx0:idx1, θ_filt[idx0:idx1],
         label = "cycle $i",
         linewidth = 2,
     )

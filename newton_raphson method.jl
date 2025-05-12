@@ -1,10 +1,37 @@
-using ForwardDiff, Plots, Statistics
+using ForwardDiff, Plots, Statistics, DelimitedFiles
 plotlyjs()
 
+
+# 분리된 gait cycles 불러오기
+# 1) 파일에서 모든 줄을 문자열로 읽어 들인다
+lines = readlines("gait_cycles_128ea.txt")
+
+# 2) 각 줄을 빈칸(또는 탭)으로 split 하고, Float64 로 parse
+gait_cycles = [ parse.(Float64, split(line)) for line in lines ]
+
+println("Loaded $(length(gait_cycles)) gait cycles.")
+# 확인: 각 cycle 의 길이가 다양함을 볼 수 있음
+# for (i,c) in enumerate(gait_cycles)
+#     @info "cycle $i length = $(length(c)) samples"
+# end
+
+
+# 최적화된 4-바 링크 파라미터들 불러오기
+# 1) 파일에서 읽어와서 1×5 Matrix 로 들어오므로 벡터로 변환
+optimal_r = vec(readdlm("optimal_r_values.txt", ','))
+
+# 2) 변수에 재할당
+r1, r2, r5, r6, θ1 = optimal_r
+
+println("Loaded: ", "r1=", r1, ", r2=", r2, ", r5=", r5, 
+        ", r6=", r6, ", th1(rad)=", θ1)
+    
 # 로봇 링크 파라미터
 # 이미 최적화 한 값을 사용해야 하나???
-const r1, r2, r5, r6 = 14, 3, 12, 21
-const θ1 = deg2rad(13)
+# 이미 최적화 된 값을 사용해야, 인간과 유사하게 걷는 4-바 링크의 수식을 이용해서
+# thigh angle을 통해 gait phase를 구했다고 말 할 수 있지 않나?
+
+
 
 # θ2 → θ5 함수 (라디안 단위)
 # 각도 : (+x축) 으로부터 CCW방향으로 증가
@@ -17,7 +44,9 @@ function f(θ2)
     return θ5
 end
 
-function invert_newton_raphson(θ5_target_rad, θ2₀_rad; tol=1e-8, max_iter=1e+3)
+# 완전 수학적으로 계산
+# aaa와 bbb가 계속 무한으로 출력되는 문제 상황
+function invert_newton_raphson(θ5_target_rad, θ2₀_rad; tol=1e-8, max_iter=1000)
     θ2 = θ2₀_rad # 초기값 설정
     for k in 1:max_iter 
         Fv = f(θ2) - θ5_target_rad 
@@ -30,10 +59,10 @@ function invert_newton_raphson(θ5_target_rad, θ2₀_rad; tol=1e-8, max_iter=1e
         if abs(Jv) < 1e-10 # 예: 1e-10보다 작으면 0에 가깝다고 판단
             error("Derivative is too close to zero ($(Jv)) at iteration $(k), θ2 = $(rad2deg(θ2))°. Cannot proceed with Newton-Raphson.")
         end
-
+        println("aaa")
         Δ  = Fv / Jv
         θ2 -= Δ
-        
+        println("bbb")
         if abs(Δ) < tol
             return θ2
         end
@@ -64,47 +93,104 @@ function calc_gradient(x::AbstractVector, y::AbstractVector)
     return grad
 end
 
-function calc_inverse_data() # 특정 θ5로 θ2를 역으로 계산하는 역방향 함수
+function normalization()
 
-    θ2_deg, θ5_deg = calc_forward_data()
-    θ5_deg_grad = calc_gradient(θ2_deg, θ5_deg)
-    slope_sign = sign.(θ5_deg_grad)
-    N = length(θ2_deg)
+    cycle = gait_cycles[1]
+    println("size of cycle : $(size(cycle)[1])")
 
-    # plot(θ2_deg, θ5_deg)
-    # plot(θ2_deg, θ5_deg_grad, color="blue")
-
-    # 하나의 theta5에 대해 두 개 이상의 theta2가 대응되는 경우가 있다.
-    # 이는 invert_newton_raphson 함수의 입력 파라미터인, th2 init 값을 어떻게 설정하느냐에 달려있다.
-    # 원래 처음 생각은 글로벌 미니멈을 기준으로 좌, 우로 그냥 90도, 270를 초기값으로 주려고 생각했다.
-
-    # 하지만, 이 방법이 아니라, 기울기를 고려하는 방법은 어떨까?
-    # 일단 애초에 calc_forward_data 의 출력인 th5_deg의 기울기를 구해 놓는 것이다. 
-    # 그리고 원함수와 도함수의 그래프를 한번에 띄워서 알아보기 쉽게 하고.
-    # 그 후, 이제 특정한 theta5 값을 입력한다면?   
-    # 그 theta5 값에 해당하는, 미리 구해논 기울기를 읽어 오고(실시간으로 읽어도 될까)
-    # 그 그 기울기가 음수, 양수임에 따라서 만약 음수면 th2 초기값을 90도로, 양수면 270도로?
+    phase = collect(LinRange(0, 100, length(cycle))) # 0~100을 cycle 길이만큼 균등 분할
+    println(phase)
     
-    # 근데 위 두 방법은 같은 거 아닌가?
-    # 첫 번째 방법은 th5의 맥스값을 구하려면 모든 값을 비교해야 해서, 두 번째 방법이 계산상 간단한가?
+    p = plot(
+      phase, cycle,
+      xlabel = "Gait Cycle (%)",
+      ylabel = "Thigh Angle (degree)",
+      title  = "Normalized 1st Gait Cycle"
+    )
 
-    θ2_est_deg = zeros(Float64, N)
-    first_init_deg   = slope_sign[1] > 0 ?  90.0 : 270.0
-    θ2_est_deg[1]    = rad2deg(     
-                          invert_newton_raphson(
-                            deg2rad(θ5_deg[1]),
-                            deg2rad(first_init_deg)
-                          )
-                       )
-    for i in 2:N
-        θ5_tar_rad    = deg2rad(θ5_deg[i])
-        θ2_guess_rad  = deg2rad(θ2_est_deg[i-1])      # ← 이전 스텝 추정값
-        θ2_est_deg[i] = rad2deg( invert_newton_raphson(θ5_tar_rad, θ2_guess_rad) )
-    end
-    err_pct = abs.((θ2_est_deg .- θ2_deg) ./ θ2_deg) * 100
-    @show mean(err_pct)
-    p = plot(θ2_deg, θ5_deg;       label="forward θ5", xlabel="θ2 (deg)")
-    plot!(θ2_deg, θ2_est_deg;  label="inverse θ2_est", lw=2, ls=:dash)
     display(p)
-    return θ2_est_deg
+    return p
+end
+
+
+
+# # 인자
+# - `gait_cycles` : Vector{Vector{Float64}} (각 element 가 한 사이클)
+# - `N_phase`     : Int  (재샘플링할 위상 분할 개수, 기본 101)
+
+# # 반환
+# - `phase`      :: Vector{Float64} — 0…100 까지 균일 분할된 위상
+# - `mean_cycle` :: Vector{Float64} — 위상별 평균 thigh-angle
+function mean_gait_cycle(gait_cycles::Vector{Vector{Float64}}; N_phase::Int64=101)
+    # 1) 공통 위상 축 (0…100% N_phase 점)
+    phase = collect(LinRange(0, 100, N_phase))
+
+    # 2) 개별 사이클을 위상 축에 선형 보간 재샘플링
+    function resample_cycle(cycle)
+        orig_ph = collect(LinRange(0, 100, length(cycle)))
+        out = similar(phase)
+        for (i, p) in enumerate(phase)
+            j = searchsortedfirst(orig_ph, p)
+            if j ≤ 1
+                out[i] = cycle[1]
+            elseif j > length(cycle)
+                out[i] = cycle[end]
+            else
+                p1, p2 = orig_ph[j-1], orig_ph[j]
+                y1, y2 = cycle[j-1], cycle[j]
+                out[i] = y1 + (p - p1)/(p2 - p1)*(y2 - y1)
+            end
+        end
+        return out
+    end
+
+    # 3) 모든 사이클 재샘플링 → 행렬로
+    R = hcat(resample_cycle.(gait_cycles)...)
+
+    # 4) 위상별 평균 (각 행의 평균)
+    mean_cycle = vec(mean(R; dims=2))
+    writedlm("mean_cycle.txt", mean_cycle, ',')
+    println("Saved mean_cycle.txt")
+
+    # 5) 결과 플롯
+    p = plot(phase, mean_cycle,
+         xlabel="Gait Cycle (%)",
+         ylabel="Average Thigh Angle (degree)",
+         title ="Mean Gait Cycle over $(length(gait_cycles)) trials",
+         linewidth=2)
+    display(p)
+    return phase, mean_cycle
+end
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# 특정 thigh angle 에 대응하는 gait phase (%) 반환 함수
+#
+# cycle     :: Vector{Float64}   — 한 사이클(θ_filt[peak[i]:peak[i+1]])  
+# target    :: Float64           — 찾고 싶은 thigh angle (degree)
+# return    :: Float64           — 0…100 범위의 gait phase
+
+
+# 지금 코드는 특정 target에 대해 두 개의 정답이 있는 상황에서 이를 구별하지 못함.
+#─────────────────────────────────────────────────────────────────────────
+function phase_for_angle(cycle::Vector{Float64}, target::Float64)
+    # 1) phase 벡터 (0…100, cycle 길이에 맞춰)
+    phases = collect(LinRange(0, 100, length(cycle)))
+
+    # 2) 선형 보간으로 target 이 끼어드는 구간 찾기
+    for i in 1:length(cycle)-1
+        y1, y2 = cycle[i], cycle[i+1]
+        println("y1 = $(y1), y2 = $(y2), i=$(i)")
+        if (y1 - target)*(y2 - target) ≤ 0    # cross or touch
+            t1, t2 = phases[i], phases[i+1]
+            t = t1 + (target - y1)*(t2 - t1)/(y2 - y1) # linear interpolation
+            println("t1 = $(t1), t2 = $(t2), t = $(t)")
+            return t
+        end
+    end
+
+    # 범위 밖이면 에러 또는 clipping
+    error("phase_for_angle: target = $target outside [$(minimum(cycle)), $(maximum(cycle))]")
 end
