@@ -4,7 +4,10 @@ plotlyjs()
 
 # 분리된 gait cycles 불러오기
 # 1) 파일에서 모든 줄을 문자열로 읽어 들인다
-lines = readlines("gait_cycles_128ea.txt")
+
+subject_number = 18
+gait_cycles_length = 92
+lines = readlines("result/subject$(subject_number)/gait_cycles_$(gait_cycles_length)ea.txt")
 
 # 2) 각 줄을 빈칸(또는 탭)으로 split 하고, Float64 로 parse
 gait_cycles = [ parse.(Float64, split(line)) for line in lines ]
@@ -18,13 +21,13 @@ println("Loaded $(length(gait_cycles)) gait cycles.")
 
 # 최적화된 4-바 링크 파라미터들 불러오기
 # 1) 파일에서 읽어와서 1×5 Matrix 로 들어오므로 벡터로 변환
-optimal_r = vec(readdlm("optimal_r_values.txt", ','))
+# optimal_r = vec(readdlm("result/optimal_r_values.txt", ','))
 
-# 2) 변수에 재할당
-r1, r2, r5, r6, θ1 = optimal_r
+# # 2) 변수에 재할당
+# r1, r2, r5, r6, θ1 = optimal_r
 
-println("Loaded: ", "r1=", r1, ", r2=", r2, ", r5=", r5, 
-        ", r6=", r6, ", th1(rad)=", θ1)
+# println("Loaded: ", "r1=", r1, ", r2=", r2, ", r5=", r5, 
+#         ", r6=", r6, ", th1(rad)=", θ1)
     
 # 로봇 링크 파라미터
 # 이미 최적화 한 값을 사용해야 하나???
@@ -149,7 +152,7 @@ function mean_gait_cycle(gait_cycles::Vector{Vector{Float64}}; N_phase::Int64=10
 
     # 4) 위상별 평균 (각 행의 평균)
     mean_cycle = vec(mean(R; dims=2))
-    writedlm("mean_cycle.txt", mean_cycle, ',')
+    writedlm("result/subject$(subject_number)/mean_cycle.txt", mean_cycle, ',')
     println("Saved mean_cycle.txt")
 
     # 5) 결과 플롯

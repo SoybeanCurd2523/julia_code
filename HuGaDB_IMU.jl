@@ -3,9 +3,11 @@ using Plots
 plotlyjs() # python javascript open source graphing library
 
 # 1. 설정 값 ----------------------------------------------------
-const FILENAME  = raw"C:\Users\Jehyeon\Downloads\HuGaDB\Data\HuGaDB_v1_walking_01_00.txt"
-const FS        = 56.3500 # 논문의 샘플링 주파수 Hz
-const DT        = 1/FS # 샘플 간 시간 간격. 상보필터에 사용. 약 0.01775 초
+subject_number = 18
+FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\HuGaDB\\Data\\HuGaDB_v1_walking_$(subject_number)_03.txt"
+
+FS        = 56.3500 # 논문의 샘플링 주파수 Hz
+DT        = 1/FS # 샘플 간 시간 간격. 상보필터에 사용. 약 0.01775 초
 
 #=
 논문 : Data were collected with accelerometer’s 
@@ -112,7 +114,7 @@ plot(
 )
 
 # --- 9. 이동평균으로 노이즈 억제 (cut-off =  Hz) ---------------------
-cutoff = 6                           # 컷오프 주파수  Hz
+cutoff = 3                           # 컷오프 주파수  Hz
 window = Int(round(FS / cutoff))     # 윈도우 길이 계산
 θ_filt = similar(θ_calib)
 running = 0.0
@@ -127,7 +129,7 @@ for k in 1:n_samples
 end
 
 # 10. 결과를 파일에 저장
-θ_filt_outfile = "thigh_angle_filt_$(cutoff)Hz.txt"
+θ_filt_outfile = "result/subject$(subject_number)/thigh_angle_filt_$(cutoff)Hz.txt"
 writedlm(θ_filt_outfile, θ_filt)
 
 println("완료: 컷오프 빈도 $(cutoff) Hz 로 필터링한 각도값을 $θ_filt_outfile 에 저장했습니다.")
@@ -185,7 +187,7 @@ gait_cycles = [
 # println("총 $(length(gait_cycles))개의 gait cycle 분리 완료")
 
 
-gait_cycles_outfile = "gait_cycles_$(length(gait_cycles))ea.txt" # Vector{Vector{Float64}}
+gait_cycles_outfile = "result/subject$(subject_number)/gait_cycles_$(length(gait_cycles))ea.txt" # Vector{Vector{Float64}}
 writedlm(gait_cycles_outfile, gait_cycles)
 
 println("완료:총 $(length(gait_cycles))개의 분리된 gait cycle들을 $gait_cycles_outfile 에 저장했습니다.")
