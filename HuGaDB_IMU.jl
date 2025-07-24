@@ -1,13 +1,21 @@
-using DelimitedFiles
-using Plots
+using DelimitedFiles, Plots, Statistics
 plotlyjs() # python javascript open source graphing library
 
 # 1. 설정 값 ----------------------------------------------------
-subject_number = 18
-FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\HuGaDB\\Data\\HuGaDB_v1_walking_$(subject_number)_03.txt"
+subject_number = 1
+
+FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\HuGaDB\\Data\\HuGaDB_v1_walking_0$(subject_number)_00.txt"
+# FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\HuGaDB\\Data\\HuGaDB_v1_standing_01_03.txt"
+# FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\HuGaDB\\Data\\HuGaDB_v1_sitting_07_01.txt"
 
 FS        = 56.3500 # 논문의 샘플링 주파수 Hz
 DT        = 1/FS # 샘플 간 시간 간격. 상보필터에 사용. 약 0.01775 초
+
+
+ALPHA = 0.96                        # 상보필터 계수
+cutoff = 3                          # 컷오프 주파수 (Hz)
+min_cycle_time = 0.6                # 최소 한 걸음 주기로 볼 시간 간격 (초)
+
 
 #=
 논문 : Data were collected with accelerometer’s 
@@ -58,23 +66,23 @@ n_samples   = size(raw, 1) #5989
 # 5. 칼럼 인덱스 찾기 ------------------------------------------
 ix_acc_x  = colidx("acc_lt_x", header)
 iz_acc_z  = colidx("acc_lt_z", header)
-irx_acc_x  = colidx("acc_rt_x", header)
-irz_acc_z  = colidx("acc_rt_z", header)
+iy_acc_y  = colidx("acc_lt_y", header)
+
+ix_gyro_x = colidx("gyro_lt_x", header)
+iz_gyro_z = colidx("gyro_lt_z", header)
 iy_gyro_y = colidx("gyro_lt_y", header)
-iry_gyro_y = colidx("gyro_rt_y", header)
+
 
 # 6. 물리량 보정 및 complementary filter ------------------------
 
 # 가속도(raw) → m/s^2 단위, 자이로(raw) → rad/s 단위로 변환
 a_x = raw[:, ix_acc_x]  .* ACC_RANGE ./ ACC_SENS
 a_z = raw[:, iz_acc_z]  .* ACC_RANGE ./ ACC_SENS
-a_rx = raw[:, irx_acc_x]  .* ACC_RANGE ./ ACC_SENS
-a_rz = raw[:, irz_acc_z]  .* ACC_RANGE ./ ACC_SENS
+a_y = raw[:, iy_acc_y]  .* ACC_RANGE ./ ACC_SENS
+
+ω_x = raw[:, ix_gyro_x] .* GYRO_RANGE ./ GYRO_SENS .* (π/180)
+ω_z = raw[:, iz_gyro_z] .* GYRO_RANGE ./ GYRO_SENS .* (π/180)
 ω_y = raw[:, iy_gyro_y] .* GYRO_RANGE ./ GYRO_SENS .* (π/180)
-ω_ry = raw[:, iry_gyro_y] .* GYRO_RANGE ./ GYRO_SENS .* (π/180)
-
-
-ALPHA = 0.96
 
 θ = zeros(Float64, n_samples)
 θ[1] = atan(a_z[1], a_x[1])
@@ -93,8 +101,9 @@ end
 # writedlm("thigh_angle_deg.txt", θ_deg)
 # println("완료: thigh_angle_deg.txt 에 $n_samples 개 각도값 저장됨.")
 
-# 8. 부호 반전 (flexion을 양수로 보기 위해)
-θ_calib = -θ_deg
+# 8. 부호 반전 (flexion을 양수로 보기 위해)  <<< 잘못된 듯.
+# θ_calib = -θ_deg
+θ_calib = θ_deg
 # writedlm("thigh_angle_calib.txt", θ_calib)
 
 N = n_samples                         # 5989개 데이터 중 첫 몇 개만 그래프에 표시할건지
@@ -114,7 +123,7 @@ plot(
 )
 
 # --- 9. 이동평균으로 노이즈 억제 (cut-off =  Hz) ---------------------
-cutoff = 3                           # 컷오프 주파수  Hz
+
 window = Int(round(FS / cutoff))     # 윈도우 길이 계산
 θ_filt = similar(θ_calib)
 running = 0.0
@@ -152,7 +161,7 @@ plot(
 
 # --------------------------------------------------
 # 1) 파라미터 설정
-min_cycle_time = 0.6             # 최소 한 걸음 주기로 볼 시간 간격 (초)
+
 min_dist = round(Int, min_cycle_time * FS) # → min_dist = 0.6초 × 56.35Hz ≈ 34 샘플
 
 # 2) 전 구간에 대해 로컬 피크 후보 검출
@@ -190,7 +199,7 @@ gait_cycles = [
 gait_cycles_outfile = "result/subject$(subject_number)/gait_cycles_$(length(gait_cycles))ea.txt" # Vector{Vector{Float64}}
 writedlm(gait_cycles_outfile, gait_cycles)
 
-println("완료:총 $(length(gait_cycles))개의 분리된 gait cycle들을 $gait_cycles_outfile 에 저장했습니다.")
+println("완료: 총 $(length(gait_cycles))개의 분리된 gait cycle들을 $gait_cycles_outfile 에 저장했습니다.")
 
 # --------------------------------------------------
 # 5) (선택) 각 cycle 별로 다른 색으로 전체 신호 위에 표시

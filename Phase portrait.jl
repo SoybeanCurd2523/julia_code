@@ -1,8 +1,9 @@
 using DelimitedFiles, Plots
+plotlyjs()
 
-optimal_theta5_output_file_path = "C:\\Users\\Jehyeon\\OneDrive - GIST\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_theta5_output.txt" # 최적화 전. matlab에서
+theta5_output_file_path = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\result\\subject11\\mean_cycle.txt"
 
-output = readdlm(optimal_theta5_output_file_path)
+output = readdlm(theta5_output_file_path)
 output = vec(output)
 
 # 각속도 계산 (단위 시간 간격 기준)
@@ -11,8 +12,8 @@ theta5_mid = output[1:end-1]             # 길이: 100. output을 길이를 100�
 
 # Phase Portrait 그리기
 plot(theta5_mid, theta5_dot,
-     xlabel="θ₅ (rad)",
-     ylabel="δθ₅ (rad)",
+     xlabel="θ₅ (degree)",
+     ylabel="δθ₅ (degree)",
      title="Phase Portrait of θ₅",
      legend=false,
      linewidth=2,
