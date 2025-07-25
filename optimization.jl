@@ -1,6 +1,7 @@
 using DelimitedFiles, Plots, Statistics, JuMP, Ipopt, Random
 
-subject_number = 1
+subject_number = 11
+
 mean_cycle_file_path ="C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\result\\subject$(subject_number)\\mean_cycle.txt"
 sim_data_file_path = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\optimal_sim_data2.txt" # 최적화 전. matlab에서
 human_data_file_path = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\data\\subjmean.txt" # 논문의 값
@@ -27,9 +28,10 @@ model = Model(Ipopt.Optimizer)
 @variable(model, r2, start=3)
 @variable(model, r5, start=12) 
 @variable(model, r6, start=21)
-@variable(model, th1, start=deg2rad(13)) # radian
+# @variable(model, th1, start=deg2rad(13)) # radian
 
 th2_init = deg2rad(248) # 248도??
+th1_init = deg2rad(13)
 
 function calc_theta_sim(r1, r2, r5, r6, th1, th2) # θ₂ 에서 θ₅ 를 구하는 함수
 
@@ -75,11 +77,11 @@ end
 @constraint(model, r5 >= 12*0.8)
 @constraint(model, r6 <= 43*sqrt(2)) 
 @constraint(model, r6 >= 21*0.8)
-@constraint(model, th1 <= deg2rad(90))
-@constraint(model, th1 >= 0)
+# @constraint(model, th1 <= deg2rad(90))
+# @constraint(model, th1 >= 0)
 
 # SSE
-@NLobjective(model, Min, sum((deg2rad.(mean_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
+@NLobjective(model, Min, sum((deg2rad.(mean_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1_init, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
 
 # MSE
 # @NLobjective(model, Min, (1/101)*sum((deg2rad.(mean_data[i]) - calc_theta_sim(r1, r2, r5, r6, th1, th2_init + (i-1)*2*pi/100))^2 for i in 1:101))
@@ -96,21 +98,19 @@ optimize!(model)
 
 # 최적화 결과
 # rad임
-output = [calc_theta_sim(value(r1), value(r2), value(r5), value(r6), value(th1), value(th2_init) + (i-1)*2*pi/100) for i in 1:101]
+output = [calc_theta_sim(value(r1), value(r2), value(r5), value(r6), th1_init, th2_init + (i-1)*2*pi/100) for i in 1:101]
 
-
+println("Given th1(deg) : ", rad2deg(th1_init))
+println("Given th2(deg) : ", rad2deg(th2_init))
+println("==============================")
 println("Optimal r1: ", value(r1)) # value(x)는 JuMP에서 최적화 후 변수를 평가하는 표준 방법
 println("Optimal r2: ", value(r2))
 println("Optimal r5: ", value(r5))
 println("Optimal r6: ", value(r6))
-print("Optimal th1(radian): ", value(th1))
-println(", th1(degree): ", rad2deg(value(th1)))
 println("==============================")
 println("Optimal value of cost function: ", objective_value(model))
 println("Pearson correlation coefficient : ", cor(mean_data, rad2deg.(output)));
 println("RMSE : ", RMSE(mean_data, rad2deg.(output)));
-println("MSE : ", MSE(mean_data, rad2deg.(output)));
-println("MAE : ", MAE(mean_data, rad2deg.(output)));
 
 ######################################
 
@@ -129,12 +129,11 @@ optimal_r = [
     value(r2),
     value(r5),
     value(r6),
-    value(th1), # radian
 ]
 
 # 2) 파일에 저장 (한 줄로 콤마 구분)
 writedlm("result/subject$(subject_number)/optimal_r_values.txt", optimal_r, ',')
-println("Saved optimal r&th1 to optimal_r_values.txt")
+println("Saved optimal r to optimal_r_values.txt")
 
 # hugadb 데이터셋 left thigh 정상 : 
 # subject 1, 3, 5, 6, 7, 11

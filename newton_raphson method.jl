@@ -5,8 +5,8 @@ plotlyjs()
 # 분리된 gait cycles 불러오기
 # 1) 파일에서 모든 줄을 문자열로 읽어 들인다
 
-subject_number = 1
-gait_cycles_length = 128
+subject_number = 11
+gait_cycles_length = 65
 lines = readlines("result/subject$(subject_number)/gait_cycles_$(gait_cycles_length)ea.txt")
 
 # 2) 각 줄을 빈칸(또는 탭)으로 split 하고, Float64 로 parse
