@@ -175,15 +175,120 @@ scatter3d!(
 # 최종 플롯을 표시합니다.
 display(p)
 
-
-
-
-
-
-
-
 # ##########################################################
-# ##########################################################
+# # ##########################################################
+# # cos 함수로 calc_theta_sim을 근사화
+
+# max_val, max_idx = findmax(data)
+# min_val, min_idx = findmin(data)
+
+# const A = (max_val - min_val) / 2
+# const C = (max_val + min_val) / 2
+# const ω = π / 50.0
+# const t_peak = Float64(max_idx)
+
+# # 2. 코사인 함수 데이터 생성 (수식 수정)
+# function cos_data_func(t)
+#     # 수직 이동 C를 밖에서 더해주는 방식으로 수정
+#     y = A * cos(ω*(t - t_peak)) + C
+#     return y
+# end
+
+
+# # julia> mean(data .- [cos_data_func(t) for t in 1:101] )
+# # -0.04445997171613357
+
+# # julia> rad2deg(-0.044)
+# # -2.521014298575622
+
+
+# # 후보 t를 찾는 내부 헬퍼 함수
+# function inverse_cos_data_func(y::Float64)
+#     if !(C - A <= y <= C + A)
+#         error("y값($y)이 범위 [$(C-A), $(C+A)]를 벗어났습니다.") # 입력값 범위 초과 에러
+#     end
+#     theta = acos((y - C) / A)
+#     candidates = Float64[]
+#     for n in -2:2
+#         t1 = t_peak + (1/ω) * (theta + 2n*π)
+#         t2 = t_peak + (1/ω) * (-theta + 2n*π) 
+# # 가능한 t가 세 개 일 때는 어떻하냐? << 그래프 y값이 시작과 끝이 같으므로, 해가 3개가 되는 부분은 그 때 뿐이다.
+# # 즉, t가 101일 때나 1일 때나 같은 상황이다
+#         if 1.0 <= t1 <= 101.0; push!(candidates, t1); end
+#         # println("aaa  t1 : ", t1)
+#         if 1.0 <= t2 <= 101.0; push!(candidates, t2); end
+#         # println("bbb  t2 : ", t2)
+#     end
+    
+#     return sort(unique(candidates))
+# end
+
+# # 최종 t를 결정하는 메인 역함수
+# function _decide_t(current_y::Float64, previous_y::Float64)
+#     candidates = inverse_cos_data_func(current_y)
+#     println("t candidates : ", candidates)
+#     if length(candidates) < 2
+#         return isempty(candidates) ? nothing : first(candidates)
+#     end
+#     t_small, t_large = candidates[1], candidates[2]
+
+#     # 이전 값과 비교하여 최종 t 결정
+#     if current_y < previous_y
+#         return t_small # 감소 중
+#     else
+#         return t_large # 증가 중 (또는 변화 없음)
+#     end
+# end
+
+# ### 예제 실행 ###
+# println("--- 모델 파라미터 ---")
+# @printf "진폭(A): %.4f\n" A
+# @printf "수직이동(C): %.4f\n" C
+# @printf "최대값위치(t_peak): %.1f\n" t_peak
+# println("--------------------")
+
+
+# current_y = data[101]
+# previous_y = data[100]
+
+# println("\n--- 역함수 계산 예제 ---")
+# @printf "현재 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" current_y rad2deg(current_y) 101
+# @printf "이전 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" previous_y rad2deg(previous_y) 100
+
+# final_t = _decide_t(current_y, previous_y)
+# @printf "계산된 최종 t값: %.5f\n" final_t
+# println("----------------------")
+
+# plot!([rad2deg.(cos_data_func(t) for t in 1:101)], label="cos_data", color="green", linewidth=2)
+
+# function myfunc()
+#     i=1
+#     while(i<101)
+#         if i==1
+#             i = 2
+#         end
+#         current_y = data[i]
+#         previous_y = data[i-1]
+
+#         @printf "현재 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" current_y rad2deg(current_y) i
+#         @printf "이전 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" previous_y rad2deg(previous_y) i-1
+
+#         final_t = _decide_t(current_y, previous_y)
+#         @printf "계산된 최종 t값: %.5f\n" final_t
+#         println("----------------------")
+
+#         if i==2
+#             i+=9
+#         else
+#             i+=10
+#         end
+#     end
+# end
+
+# # myfunc()
+
+######################################################
+# 이분법
 
 function calc_theta_sim(r1, r2, r5, r6, th1, th2) # θ₂ 에서 θ₅ 를 구하는 함수
 
@@ -209,112 +314,129 @@ function calc_theta_sim(r1, r2, r5, r6, th1, th2) # θ₂ 에서 θ₅ 를 구�
      return theta_sim
 end
 
-data = [ calc_theta_sim(predicted_r_values[1], predicted_r_values[2], predicted_r_values[3], predicted_r_values[4], deg2rad(13), deg2rad(248)+(i)*2*pi/100) for i in 1:101 ]
-plot( rad2deg.( data ), 
-    color="red", xlabel="% gait cycle", ylabel="thigh angle(degree)", linewidth=2, label="data" )
-
-max_val, max_idx = findmax(data)
-min_val, min_idx = findmin(data)
-
-const A = (max_val - min_val) / 2
-const C = (max_val + min_val) / 2
-const ω = π / 50.0
-const t_peak = Float64(max_idx)
-
-# 2. 코사인 함수 데이터 생성 (수식 수정)
-function cos_data_func(t)
-    # 수직 이동 C를 밖에서 더해주는 방식으로 수정
-    y = A * cos(ω*(t - t_peak)) + C
-    return y
-end
+data = [ calc_theta_sim(predicted_r_values[1], predicted_r_values[2], predicted_r_values[3], predicted_r_values[4], deg2rad(13), deg2rad(248)+(i-1)*2*pi/100) for i in 1:101 ]
+# plot( rad2deg.( data ), 
+#     color="red", xlabel="% gait cycle", ylabel="thigh angle(degree)", linewidth=2, label="data" )
 
 
-# julia> mean(data .- [cos_data_func(t) for t in 1:101] )
-# -0.04445997171613357
+# # pseudo code
+# function bisection_method(data_array{Float64}, y_level::Float64, y_level_prev::Float64)
+#     # 만약 y_level이 data_array 중 정확히 존재하는 값이라면
+#         # 해당하는 인덱스(t값)을 반환
 
-# julia> rad2deg(-0.044)
-# -2.521014298575622
+#     # 그렇지 않다면
+#         # y_level이 포함되어 있을 수 있는 구간 candidates를 구하기
+#             # 구간이 두 개 라면
+#                 # y_level_prev를 고려해, 구간 하나로 특정
+#             # bisection 방법을 통해 구간 안에서 정확한 t값을 계산하기(epsilon)
+#                 # t값을 반환
+# end
 
+function bisection_method(target_function::Function, data::Vector{Float64}, y::Float64, y_prev::Float64)
+    max_idx = findmax(data)[2]
+        println("max_idx : ", max_idx)
+        println("y>y_prev? ", y > y_prev)
+        # println("candidates: ", candidates)
 
-# 후보 t를 찾는 내부 헬퍼 함수
-function inverse_cos_data_func(y::Float64)
-    if !(C - A <= y <= C + A)
-        error("y값($y)이 범위 [$(C-A), $(C+A)]를 벗어났습니다.") # 입력값 범위 초과 에러
-    end
-    theta = acos((y - C) / A)
-    candidates = Float64[]
-    for n in -2:2
-        t1 = t_peak + (1/ω) * (theta + 2n*π)
-        t2 = t_peak + (1/ω) * (-theta + 2n*π) 
-# 가능한 t가 세 개 일 때는 어떻하냐? << 그래프 y값이 시작과 끝이 같으므로, 해가 3개가 되는 부분은 그 때 뿐이다.
-# 즉, t가 101일 때나 1일 때나 같은 상황이다
-        if 1.0 <= t1 <= 101.0; push!(candidates, t1); end
-        # println("aaa  t1 : ", t1)
-        if 1.0 <= t2 <= 101.0; push!(candidates, t2); end
-        # println("bbb  t2 : ", t2)
-    end
-    
-    return sort(unique(candidates))
-end
+    tol = 1e-5      # 허용 오차
+    max_iter = 100  # 최대 반복
 
-# 최종 t를 결정하는 메인 역함수
-function _decide_t(current_y::Float64, previous_y::Float64)
-    candidates = inverse_cos_data_func(current_y)
-    println("t candidates : ", candidates)
-    if length(candidates) < 2
-        return isempty(candidates) ? nothing : first(candidates)
-    end
-    t_small, t_large = candidates[1], candidates[2]
-
-    # 이전 값과 비교하여 최종 t 결정
-    if current_y < previous_y
-        return t_small # 감소 중
-    else
-        return t_large # 증가 중 (또는 변화 없음)
-    end
-end
-
-### 예제 실행 ###
-println("--- 모델 파라미터 ---")
-@printf "진폭(A): %.4f\n" A
-@printf "수직이동(C): %.4f\n" C
-@printf "최대값위치(t_peak): %.1f\n" t_peak
-println("--------------------")
-
-
-current_y = data[101]
-previous_y = data[100]
-
-println("\n--- 역함수 계산 예제 ---")
-@printf "현재 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" current_y rad2deg(current_y) 101
-@printf "이전 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" previous_y rad2deg(previous_y) 100
-
-final_t = _decide_t(current_y, previous_y)
-@printf "계산된 최종 t값: %.5f\n" final_t
-println("----------------------")
-
-plot!([rad2deg.(cos_data_func(t) for t in 1:101)], label="cos_data", color="green", linewidth=2)
-
-function myfunc()
-    i=1
-    while(i<101)
-        if i==1
-            i = 2
+    # 1) 샘플 데이터에서 거의 같은 값이 있으면 그 인덱스 반환
+    for i in 1:length(data)
+        if abs(data[i] - y) < tol
+            println("find exact index")
+            return float(i)
         end
-        current_y = data[i]
-        previous_y = data[i-1]
+    end
 
-        @printf "현재 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" current_y rad2deg(current_y) i
-        @printf "이전 y: %.5f (rad), y: %.5f (deg), index : %.5f \n" previous_y rad2deg(previous_y) i-1
+    # 2) y 레벨을 끼는 구간(부호 변화) 찾기
+    candidates = Int[]
+    for i in 1:length(data)-1
+        if (data[i] - y) * (data[i+1] - y) <= 0
+            push!(candidates, i)  # 해는 [i, i+1] 사이
+        end
+    end
+    if length(candidates) == 0
+        error("y 레벨을 끼는 구간을 찾지 못했습니다.")
+    end
 
-        final_t = _decide_t(current_y, previous_y)
-        @printf "계산된 최종 t값: %.5f\n" final_t
-        println("----------------------")
+    # 3) 여러 구간이면 간단 규칙으로 선택
+    # sort(candidates)
 
-        if i==2
-            i+=9
+    if(length(candidates) == 1)
+        idx = candidates[1]
+    else #if(length(candidates) >= 2)
+        for i in 1:length(candidates)
+            println("candidates[$(i)] : $(candidates[i])")
+        end
+        if candidates[2] < max_idx
+            if y > y_prev # 증가하는 중
+                idx = candidates[2]
+            else
+                idx = candidates[1]
+            end
+        else # candidates[2] >= max_idx
+            if y > y_prev # 증가하는 중
+                idx = candidates[1]
+            else
+                idx = candidates[2]
+            end
+        end
+    end
+
+    # 4) 연속 t 구간에서 이분법 수행 (t는 실수로 계산)
+    a = float(idx)
+    b = float(idx + 1)
+
+    g(t) = target_function(t) - y
+
+    g_a = g(a)
+    g_b = g(b)
+    if g_a * g_b > 0
+        error("선택한 구간에 근이 없습니다. (부호 동일)")
+    end
+
+    iter = 0
+    while (b - a) > tol && iter < max_iter
+        m = (a + b) / 2
+        g_m = g(m)
+
+        if abs(g_m - 0) < tol
+            println("iter : $(iter)")
+            return m
+        end
+
+        if g_a * g_m < 0
+            b = m
+            g_b = g_m
         else
-            i+=10
+            a = m
+            g_a = g_m
         end
+
+        iter += 1
     end
+    println("iter : $(iter)")
+    return (a + b) / 2
 end
+
+target_function(t) = calc_theta_sim(
+    predicted_r_values[1], 
+    predicted_r_values[2], 
+    predicted_r_values[3], 
+    predicted_r_values[4], 
+    deg2rad(13), 
+    deg2rad(248) + (t - 1) * 2 * pi / 100
+)
+
+# what is next step?
+for y in rad2deg(findmin(data)[1]) : rad2deg(findmax(data)[1])
+    y_prev = y+0.5 # degree # 감소 중
+
+    t_est = bisection_method(target_function, data, deg2rad(y), deg2rad(y_prev))
+    println("t ≈ ", t_est)
+    println("f(t) ≈ ", target_function(t_est), " rad  (", rad2deg(target_function(t_est)), " deg)")
+    println("---------------")
+end
+
+
