@@ -131,7 +131,7 @@ function main()
 
     # --- 9. 이동평균으로 노이즈 억제 (cut-off =  Hz) ---------------------
 
-    window = Int(round(FS / cutoff))     # 윈도우 길이 계산
+    window = Int(round(FS / CUTOFF))     # 윈도우 길이 계산
     θ_filt = similar(θ_calib)
     running = 0.0
     for k in 1:n_samples
@@ -145,13 +145,13 @@ function main()
     end
 
     # 10. 결과를 파일에 저장
-    θ_filt_outfile = "result/subject$(subject_number)/thigh_angle_filt_$(cutoff)Hz.txt"
+    θ_filt_outfile = "result/subject$(subject_number)/thigh_angle_filt_$(CUTOFF)Hz.txt"
     writedlm(θ_filt_outfile, θ_filt)
 
-    println("완료: 컷오프 빈도 $(cutoff) Hz 로 필터링한 각도값을 $θ_filt_outfile 에 저장했습니다.")
+    println("완료: 컷오프 빈도 $(CUTOFF) Hz 로 필터링한 각도값을 $θ_filt_outfile 에 저장했습니다.")
     plot(
     t, θ_filt[1:N],
-    label  = "cutoff = $(cutoff) Hz",
+    label  = "CUTOFF = $(CUTOFF) Hz",
     xlabel = "Time (s)",
     ylabel = "Thigh Angle (degree)",
     legend = (0.09, 0.20),
@@ -168,7 +168,7 @@ function main()
     # --------------------------------------------------
     # 1) 파라미터 설정
 
-    min_dist = round(Int, min_cycle_time * FS) # → min_dist = 0.6초 × 56.35Hz ≈ 34 샘플
+    min_dist = round(Int, MIN_CYCLE_TIME * FS) # → min_dist = 0.6초 × 56.35Hz ≈ 34 샘플
 
     # 2) 전 구간에 대해 로컬 피크 후보 검출
     candidates = [ i for i in 2:n_samples-1 if

@@ -74,8 +74,9 @@ X_full = vcat(hcat(heights_orig, weights_orig, ages_orig), hcat(heights_noise, w
 Y_full = vcat(r_values_orig, r_values_noise)
 
 # 3-2. 예측할 새로운 사람 정보 정의
-new_person = (height=180, weight=80, age=23)
-
+new_person = (height=172, weight=70, age=24)
+# 충민 : 172, 70, 24(만나이)
+# 제현 : 166, 55, 25
 
 # 3-3. 정규화 준비
 all_heights = vcat(X_full[:, 1], new_person.height)
@@ -315,8 +316,8 @@ function calc_theta_sim(r1, r2, r5, r6, th1, th2) # θ₂ 에서 θ₅ 를 구�
 end
 
 data = [ calc_theta_sim(predicted_r_values[1], predicted_r_values[2], predicted_r_values[3], predicted_r_values[4], deg2rad(13), deg2rad(248)+(i-1)*2*pi/100) for i in 1:101 ]
-# plot( rad2deg.( data ), 
-#     color="red", xlabel="% gait cycle", ylabel="thigh angle(degree)", linewidth=2, label="data" )
+plot( rad2deg.( data ), 
+    title = "thigh angle by personalized 4-bar parameters", color="red", xlabel="% gait cycle", ylabel="thigh angle [deg]", linewidth=2, label="data" )
 
 
 # # pseudo code
@@ -333,9 +334,10 @@ data = [ calc_theta_sim(predicted_r_values[1], predicted_r_values[2], predicted_
 # end
 
 function bisection_method(target_function::Function, data::Vector{Float64}, y::Float64, y_prev::Float64)
-    max_idx = findmax(data)[2]
-        println("max_idx : ", max_idx)
-        println("y>y_prev? ", y > y_prev)
+    max_value, max_idx = findmax(data)
+        # println("max_idx : ", max_idx)
+        # println("max value (deg) : ", rad2deg(max_value))
+        # println("y>y_prev? ", y > y_prev)
         # println("candidates: ", candidates)
 
     tol = 1e-5      # 허용 오차
@@ -357,7 +359,8 @@ function bisection_method(target_function::Function, data::Vector{Float64}, y::F
         end
     end
     if length(candidates) == 0
-        error("y 레벨을 끼는 구간을 찾지 못했습니다.")
+        # println("y 레벨을 끼는 구간을 찾지 못했습니다.")
+        return -1
     end
 
     # 3) 여러 구간이면 간단 규칙으로 선택
@@ -429,14 +432,90 @@ target_function(t) = calc_theta_sim(
     deg2rad(248) + (t - 1) * 2 * pi / 100
 )
 
-# what is next step?
-for y in rad2deg(findmin(data)[1]) : rad2deg(findmax(data)[1])
-    y_prev = y+0.5 # degree # 감소 중
+# # what is next step?
+# # 여기서 y를 imu각도 입력, y_prev는 이전 각도 입력
+# for y in rad2deg(findmin(data)[1]) : rad2deg(findmax(data)[1]) # 1degree씩 증가
+#     y_prev = y+0.2 # degree # 감소 중
+#     println("y = ", y, " deg")
 
-    t_est = bisection_method(target_function, data, deg2rad(y), deg2rad(y_prev))
-    println("t ≈ ", t_est)
-    println("f(t) ≈ ", target_function(t_est), " rad  (", rad2deg(target_function(t_est)), " deg)")
-    println("---------------")
+#     t_est = bisection_method(target_function, data, deg2rad(y), deg2rad(y_prev))
+#     println("t_est ≈ ", t_est)
+#     println("f(t) ≈ ", target_function(t_est), " rad  (", rad2deg(target_function(t_est)), " deg)")
+#     println("---------------")
+# end
+
+
+# bisection_method 함수 수정해야 되는데
+# 입력값은 현재, 과거 각도와, 4-바 파라미터??
+# 그래서 이 함수를 계속 호출하면서, 현재 각도에 해당하는 t값을 반환해야 한다
+
+# 현재 된 것 : 충민씨 imu 실험결과 받아와서, 각 행을 읽으며 그 때 마다의 각도를 계산하기
+
+
+######################################################
+######################################################
+
+
+using CSV, DataFrames, Plots, Statistics
+plotlyjs()
+# ── 0. 데이터 로드 ───────────────────────────────────────────
+FILENAME = "C:\\Users\\Jehyeon\\Dropbox\\바탕 화면\\GIST\\4-bar linkage\\julia_code\\gaitdata\\imu_data\\1\\imu_trial_1.csv"
+
+df = CSV.read(FILENAME, DataFrame)   # df[!, "accX1"]처럼 이름으로 접근 가능
+t        = df.time                              # time [s]
+n        = length(t)
+DT       = mean(diff(t))                        # 평균 샘플 주기
+ALPHA    = 0.96                                 # complementary filter 계수
+DEG2RAD  = π/180
+RAD2DEG  = 180/π
+
+# # 그래프 초기화 (GR 백엔드가 가장 가볍습니다)
+# plt = plot(xlabel = "time [s]",
+#            ylabel = "thigh angle [deg]",
+#            ylim   = (-60, 120),
+#            legend = false)
+# display(plt)
+
+# angle_deg = Float64[]    # 누적 각도 저장용
+# time_buf  = Float64[]
+
+# 버퍼 비우기
+empty!(time_buf)          # = deleteat!(time_buf, :)
+empty!(angle_deg)
+
+θ_prev = atan(df[1, :accX1], df[1, :accY1])   # 초기 각도(rad)
+push!(angle_deg, θ_prev * RAD2DEG)
+push!(time_buf, df[1, :time])
+
+# for k in 2:nrow(df)
+for k in 2:600
+    # 1) 한 줄씩 읽기
+    ax = df[k, :accX1]
+    ay = df[k, :accY1]
+    wz = df[k, :gyroZ1] * DEG2RAD       # deg/s → rad/s  (이미 rad/s면 변환 생략)
+
+    # 2) 보정 각 계산
+    θ_acc  = atan(ax, ay)       # 자세축 확인 후 필요하면 부호 바꾸세요
+    θ_gyro = θ_prev + wz*DT
+    θ      = ALPHA*θ_gyro + (1-ALPHA)*θ_acc
+    
+
+    # 3) 버퍼에 쌓기
+    push!(time_buf, df[k, :time])
+    push!(angle_deg, θ * RAD2DEG)
+
+
+    # bisection으로 t 추정 (두 번째 샘플 부터)
+
+    t_est = bisection_method(target_function, data, θ, θ_prev)
+
+    if t_est >= 0
+        println("k : ", k)
+        println("θ (deg) : ", θ * RAD2DEG)
+        println("θ_prev (deg): ", θ_prev * RAD2DEG)
+        println("t_est : ", t_est)
+        println("--------------------")
+    end
+    θ_prev = θ
+    
 end
-
-
