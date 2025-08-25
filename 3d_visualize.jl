@@ -318,7 +318,7 @@ end
 data = [ calc_theta_sim(predicted_r_values[1], predicted_r_values[2], predicted_r_values[3], predicted_r_values[4], deg2rad(13), deg2rad(248)+(i-1)*2*pi/100) for i in 1:101 ]
 plot( rad2deg.( data ), 
     title = "thigh angle by personalized 4-bar parameters", color="red", xlabel="% gait cycle", ylabel="thigh angle [deg]", linewidth=2, label="data" )
-
+# th2_init이 248도 인 이유는 heel strike가 일어날 때, 즉 발이 가장 앞으로 나와 있을 때 로 과거에 생각한 듯
 
 # # pseudo code
 # function bisection_method(data_array{Float64}, y_level::Float64, y_level_prev::Float64)
@@ -340,7 +340,7 @@ function bisection_method(target_function::Function, data::Vector{Float64}, y::F
         # println("y>y_prev? ", y > y_prev)
         # println("candidates: ", candidates)
 
-    tol = 1e-5      # 허용 오차
+    tol = 1e-3      # 허용 오차
     max_iter = 100  # 최대 반복
 
     # 1) 샘플 데이터에서 거의 같은 값이 있으면 그 인덱스 반환
@@ -432,29 +432,7 @@ target_function(t) = calc_theta_sim(
     deg2rad(248) + (t - 1) * 2 * pi / 100
 )
 
-# # what is next step?
-# # 여기서 y를 imu각도 입력, y_prev는 이전 각도 입력
-# for y in rad2deg(findmin(data)[1]) : rad2deg(findmax(data)[1]) # 1degree씩 증가
-#     y_prev = y+0.2 # degree # 감소 중
-#     println("y = ", y, " deg")
-
-#     t_est = bisection_method(target_function, data, deg2rad(y), deg2rad(y_prev))
-#     println("t_est ≈ ", t_est)
-#     println("f(t) ≈ ", target_function(t_est), " rad  (", rad2deg(target_function(t_est)), " deg)")
-#     println("---------------")
-# end
-
-
-# bisection_method 함수 수정해야 되는데
-# 입력값은 현재, 과거 각도와, 4-바 파라미터??
-# 그래서 이 함수를 계속 호출하면서, 현재 각도에 해당하는 t값을 반환해야 한다
-
-# 현재 된 것 : 충민씨 imu 실험결과 받아와서, 각 행을 읽으며 그 때 마다의 각도를 계산하기
-
-
 ######################################################
-######################################################
-
 
 using CSV, DataFrames, Plots, Statistics
 plotlyjs()
@@ -469,6 +447,12 @@ ALPHA    = 0.96                                 # complementary filter 계수
 DEG2RAD  = π/180
 RAD2DEG  = 180/π
 
+# ★ LPF 설정
+fc   = 3.0                     # Hz (2~4 사이에서 튜닝)
+τ    = 1/(2π*fc)               # time constant (≈ 0.08 s at 2 Hz)
+
+WINDOW_SIZE = 10
+
 # # 그래프 초기화 (GR 백엔드가 가장 가볍습니다)
 # plt = plot(xlabel = "time [s]",
 #            ylabel = "thigh angle [deg]",
@@ -476,46 +460,141 @@ RAD2DEG  = 180/π
 #            legend = false)
 # display(plt)
 
-# angle_deg = Float64[]    # 누적 각도 저장용
-# time_buf  = Float64[]
+angle_deg = Float64[]    # 누적 각도 저장용
+time_buf  = Float64[]
+t_est_buf = Float64[]
+
+y_hist = Float64[] # 최근 y값 (θ_lpf) 들 저장
 
 # 버퍼 비우기
-empty!(time_buf)          # = deleteat!(time_buf, :)
 empty!(angle_deg)
+empty!(time_buf)          # = deleteat!(time_buf, :)
+empty!(t_est_buf)
+empty!(y_hist)
 
 θ_prev = atan(df[1, :accX1], df[1, :accY1])   # 초기 각도(rad)
+θ_lpf  = θ_prev    
+θ_prev_lpf = θ_lpf
+
 push!(angle_deg, θ_prev * RAD2DEG)
 push!(time_buf, df[1, :time])
+push!(t_est_buf, -1)
 
-# for k in 2:nrow(df)
-for k in 2:600
+push!(y_hist, θ_lpf)
+
+# 최적의 4-bar 그래프의 최솟값과 최댓값
+y_min, y_max = extrema(data)
+tol_level = deg2rad(0.01)
+
+for k in 2:nrow(df)
+# for k in 2:1040
     # 1) 한 줄씩 읽기
     ax = df[k, :accX1]
     ay = df[k, :accY1]
     wz = df[k, :gyroZ1] * DEG2RAD       # deg/s → rad/s  (이미 rad/s면 변환 생략)
 
+    # ★ per-sample dt 사용 (LPF/보정 모두에 권장)
+    dt = df[k, :time] - df[k-1, :time]
+
     # 2) 보정 각 계산
     θ_acc  = atan(ax, ay)       # 자세축 확인 후 필요하면 부호 바꾸세요
-    θ_gyro = θ_prev + wz*DT
+    θ_gyro = θ_prev + wz*dt
     θ      = ALPHA*θ_gyro + (1-ALPHA)*θ_acc
     
+    # 1차 LPF
+    α_lpf  = dt/(τ + dt)
+    θ_lpf  = θ_lpf + α_lpf*(θ - θ_lpf)    # ← 부드러운 각도(rad)
+
+    #  y_prev_avg를 '현재 θ_lpf를 넣기 전에' 계산
+    y_prev_avg = (length(y_hist) > 0) ? mean(y_hist) : θ_prev_lpf
 
     # 3) 버퍼에 쌓기
     push!(time_buf, df[k, :time])
-    push!(angle_deg, θ * RAD2DEG)
+    # push!(angle_deg, θ * RAD2DEG)
+    push!(angle_deg, θ_lpf * RAD2DEG)
 
 
     # bisection으로 t 추정 (두 번째 샘플 부터)
+    t_est = NaN
 
-    t_est = bisection_method(target_function, data, θ, θ_prev)
+    # if(y_min - tol_level <= θ_lpf <= y_max + tol_level) && (abs(θ_lpf - θ_prev_lpf) > tol_level)
+    # if(abs(θ_lpf - θ_prev_lpf) > tol_level)
+        # t_est = bisection_method(target_function, data, θ_lpf, θ_prev_lpf)
+        t_est = bisection_method(target_function, data, θ_lpf, y_prev_avg)
+        if t_est >= 0
+            println("k : ", k)
+            println("y_prev_avg : ", y_prev_avg * RAD2DEG)
+            println("θ_lpf (deg) : ", θ_lpf * RAD2DEG)
+            println("θ_prev_lpf (deg): ", θ_prev_lpf * RAD2DEG)
+            println("t_est : ", t_est)
+            println("--------------------")
+        end
+    # end
 
-    if t_est >= 0
-        println("k : ", k)
-        println("θ (deg) : ", θ * RAD2DEG)
-        println("θ_prev (deg): ", θ_prev * RAD2DEG)
-        println("t_est : ", t_est)
-        println("--------------------")
+    # 이제 현재 θ_lpf를 버퍼에 추가 (사이즈 유지)
+    push!(y_hist, θ_lpf)
+    if length(y_hist) > WINDOW_SIZE
+        popfirst!(y_hist)
     end
+
+    push!(t_est_buf, t_est)
     θ_prev = θ
+    θ_prev_lpf = θ_lpf
     
 end
+
+# 상보필터 계산할 땐 LPF 적용 전 이전 각도를 계속 집어넣고,
+# bisection 할 때는 LPF 적용된 현재, 이전 각도를 대입
+
+plot(t_est_buf, title = "t_est_buf")
+
+# angle_deg[811] : -2.691, 극솟값
+# 감소 - data 에서 : 구간[25,26] - 구간[78, 79] 중 25.xx 일 듯
+# t_est_buf 에서 25.22754
+
+# angle_deg[812] : -2.668, 증가 중
+# 증가 - data 에서 : 25,26 - 78, 79 중 78.xx 일듯
+# t_est_buf 에서 78.94434
+
+# 보행의 시작은 어디인가?
+# data 그래프 자체가 보행의 시작에 대한 정의를 가지고 있나?
+# -> 내가 정하기 나름이다. 
+# 이거 data 계산할 때 deg2rad(248) << 여기, 여기서는 +x축 기준인데, 이 248을 90으로 바꾸니까 plot(angle_deg[811:949]) 와 개형이 비슷해짐
+
+# 그리고 이거 data 최댓값 넘으면 t_est 가 -1 나오는게 좀 이상하다 -> data에서 끼는 구간을 찾지 못하면 -1 반환
+# data를 정규화 (값을 0과 1 사이로) 해야 하나?
+
+# 둘다, angle_deg[811:949]랑 data, 정규화 해 보는 것도 괜찮을듯?
+# 이거 실시간 정규화 가능한가? 극값을 기준으로 해야되냐? 아니면, 미리 끝까지 본 것 중 그 보행의 극값을 기준으로 정규화를 해야 하나?
+
+
+
+# --------------------
+# candidates[1] : 19
+# candidates[2] : 81
+# iter : 4
+# k : 2643
+# y_prev_avg : 3.9372086209395123
+# θ_lpf (deg) : 4.492967222071617
+# θ_prev_lpf (deg): 4.2145909166987945
+# t_est : 81.46875
+
+# --------------------
+# candidates[1] : 19
+# candidates[2] : 81
+# iter : 4
+# k : 2643
+# y_prev_avg : 3.8775493372905774
+# θ_lpf (deg) : 4.492967222071617
+# θ_prev_lpf (deg): 4.2145909166987945
+# t_est : 81.46875
+
+# --------------------
+# candidates[1] : 91
+# candidates[2] : 100
+# iter : 0
+# k : 2747
+# y_prev_avg : 22.901600222374977
+# θ_lpf (deg) : 25.546975301053916
+# θ_prev_lpf (deg): 25.08421368352829
+# t_est : 91.5
